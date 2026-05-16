@@ -542,39 +542,65 @@ function nowTime() { return new Date().toLocaleTimeString('id-ID', {hour:'2-digi
 function nowDate() { return new Date().toLocaleDateString('id-ID'); }
 function saveTxns() { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); }
 
-// ── AI call (Gemini) ───────────────────────────────────────
-async function callAI(userText) {
+
+// ── AI call (Gemini) dengan auto-retry ────────────────────
+async function callAI(userText, attempt = 1) {
   const apiKey = getApiKey();
   if (!apiKey) { openSettings(); throw new Error('No API key'); }
 
-  const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: PARSE_SYSTEM + '\n\nInput user: ' + userText }]
-        }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.1
-        }
-      })
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: PARSE_SYSTEM + '\n\nInput user: ' + userText }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.1 }
+  });
+
+  let resp;
+  try {
+    resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+    );
+  } catch (networkErr) {
+    if (attempt <= 3) {
+      await new Promise(r => setTimeout(r, 2000 * attempt));
+      return callAI(userText, attempt + 1);
     }
-  );
+    throw new Error('Tidak ada koneksi internet 📶');
+  }
+
+  if (resp.status === 429) {
+    if (attempt <= 3) {
+      const wait = 5000 * attempt;
+      showTypingMsg(`Rate limit, retry dalam ${wait/1000}s... (${attempt}/3)`);
+      await new Promise(r => setTimeout(r, wait));
+      return callAI(userText, attempt + 1);
+    }
+    throw new Error('Rate limit Gemini. Tunggu 1 menit lalu coba lagi.');
+  }
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    if (resp.status === 400) throw new Error('API key tidak valid, cek di pengaturan ⚙️');
-    if (resp.status === 403) throw new Error('API key tidak punya akses, cek di pengaturan ⚙️');
-    if (resp.status === 429) throw new Error('Terlalu banyak request, tunggu sebentar');
+    if (resp.status === 400 || resp.status === 403) {
+      throw new Error('API key tidak valid atau belum aktif. Buka ⚙️ dan cek key kamu.');
+    }
+    if (resp.status === 503 && attempt <= 2) {
+      await new Promise(r => setTimeout(r, 3000));
+      return callAI(userText, attempt + 1);
+    }
     throw new Error(err.error?.message || 'Error ' + resp.status);
   }
 
   const data = await resp.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+  try {
+    return JSON.parse(raw.replace(/```json|```/g, '').trim());
+  } catch {
+    throw new Error('Format respons AI tidak valid, coba lagi');
+  }
+}
+
+function showTypingMsg(msg) {
+  const span = document.querySelector('#typing span');
+  if (span) span.textContent = msg;
 }
 
 // ── Find transaction ───────────────────────────────────────
