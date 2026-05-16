@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Dompetku" />
+<meta name="theme-color" content="#075E54" />
+<title>Dompetku</title>
+<link rel="manifest" href="data:application/json,{
+  &quot;name&quot;:&quot;Dompetku&quot;,
+  &quot;short_name&quot;:&quot;Dompetku&quot;,
+  &quot;start_url&quot;:&quot;.&quot;,
+  &quot;display&quot;:&quot;standalone&quot;,
+  &quot;background_color&quot;:&quot;#075E54&quot;,
+  &quot;theme_color&quot;:&quot;#075E54&quot;,
+  &quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>&quot;,&quot;sizes&quot;:&quot;any&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]
+}" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+<style>
+  :root {
+    --gh: #075E54;
+    --gm: #1D9E75;
+    --gl: #25D366;
+    --bg-chat: #ECE5DD;
+    --bubble-out: #DCF8C6;
+    --bubble-in: #ffffff;
+    --text: #111;
+    --text-s: #667;
+    --border: rgba(0,0,0,0.08);
+    --radius: 12px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--gh); }
+
+  #app {
+    display: flex; flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--bg-chat);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    background: var(--gh);
+    padding: 12px 16px;
+    padding-top: calc(12px + var(--safe-top));
+    display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    z-index: 10;
+  }
+  #hav {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--gm); display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  #hinfo { flex: 1; min-width: 0; }
+  #hname { color: #fff; font-size: 16px; font-weight: 600; }
+  #hsub { color: #9BCDC5; font-size: 12px; }
+  #htabs { display: flex; gap: 2px; }
+  .htab {
+    background: transparent; border: none;
+    color: rgba(255,255,255,0.6); font-size: 12px;
+    padding: 6px 12px; cursor: pointer; font-weight: 500;
+    border-radius: 16px; font-family: inherit;
+    transition: all 0.2s;
+  }
+  .htab.active { color: #fff; background: rgba(255,255,255,0.15); }
+
+  /* ── Chat ── */
+  #chat-area {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 12px 10px 6px;
+    display: flex; flex-direction: column; gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .msg-wrap { display: flex; flex-direction: column; }
+  .msg-wrap.out { align-items: flex-end; }
+  .msg-wrap.in { align-items: flex-start; }
+  .bubble {
+    max-width: 86%; padding: 8px 11px 4px;
+    border-radius: 10px; font-size: 14px; line-height: 1.55;
+    word-break: break-word;
+  }
+  .bubble.out { background: var(--bubble-out); border-top-right-radius: 2px; color: #111; }
+  .bubble.in { background: var(--bubble-in); border-top-left-radius: 2px; color: #111;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .btime {
+    font-size: 11px; color: #999; text-align: right;
+    margin-top: 3px; display: flex; align-items: center;
+    justify-content: flex-end; gap: 3px;
+  }
+  .bubble.out .btime { color: #7CB97B; }
+  .chk { color: #53BDEB; font-size: 13px; }
+
+  /* ── Transaction card ── */
+  .txn-card {
+    border-radius: 8px; padding: 10px 12px;
+    margin-top: 8px; font-size: 13px;
+  }
+  .txn-card.expense { background: rgba(226,75,74,0.07); border-left: 3px solid #E24B4A; }
+  .txn-card.income  { background: rgba(29,158,117,0.08); border-left: 3px solid #1D9E75; }
+  .txn-card.edited  { background: rgba(29,118,158,0.07); border-left: 3px solid #1D769E; }
+  .txn-card.deleted { background: rgba(100,100,100,0.06); border-left: 3px solid #aaa; opacity: 0.75; }
+  .txn-amount { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .expense .txn-amount { color: #E24B4A; }
+  .income  .txn-amount { color: #1D9E75; }
+  .edited  .txn-amount { color: #1D769E; }
+  .txn-row { display: flex; justify-content: space-between; margin-top: 4px; align-items: center; }
+  .tlbl { color: #888; font-size: 12px; }
+  .tval { font-size: 12px; font-weight: 500; color: #222; text-align: right; max-width: 65%; }
+  .cbadge {
+    display: inline-block; padding: 2px 9px;
+    border-radius: 20px; font-size: 11px; font-weight: 500;
+  }
+  .c-food      { background:#FFF3CD; color:#856404 }
+  .c-transport { background:#D1ECF1; color:#0C5460 }
+  .c-belanja   { background:#F8D7DA; color:#721C24 }
+  .c-hiburan   { background:#D4EDDA; color:#155724 }
+  .c-tagihan   { background:#E2D9F3; color:#4A235A }
+  .c-pemasukan { background:#D4EDDA; color:#155724 }
+  .c-lainnya   { background:#F0F0F0; color:#555    }
+
+  /* ── Confirm box ── */
+  .confirm-box {
+    background: rgba(29,118,158,0.06);
+    border: 1px solid rgba(29,118,158,0.2);
+    border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 13px;
+  }
+  .ctitle { font-weight: 600; margin-bottom: 8px; color: #222; font-size: 13px; }
+  .confirm-row { display: flex; justify-content: space-between; padding: 3px 0; }
+  .clbl { color: #888; font-size: 12px; }
+  .cval { font-size: 12px; }
+  .diff-old { text-decoration: line-through; color: #aaa; font-size: 11px; }
+  .diff-new { color: #222; font-size: 12px; font-weight: 500; }
+
+  /* ── Quick buttons ── */
+  .qbtns { display: flex; flex-wrap: wrap; gap: 7px; padding: 2px 4px 8px; }
+  .qbtn {
+    background: rgba(7,94,84,0.08);
+    border: 1px solid rgba(7,94,84,0.25);
+    border-radius: 18px; padding: 6px 14px;
+    font-size: 13px; color: var(--gh); cursor: pointer;
+    font-family: inherit; font-weight: 500;
+    transition: all 0.15s;
+  }
+  .qbtn:active { background: rgba(7,94,84,0.18); transform: scale(0.97); }
+  .qbtn.red { background: rgba(226,75,74,0.07); border-color: rgba(226,75,74,0.25); color: #E24B4A; }
+  .qbtn.red:active { background: rgba(226,75,74,0.15); }
+
+  /* ── Typing indicator ── */
+  #typing { display: none; align-items: center; padding: 4px 10px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #bbb; animation: bl 1.2s infinite; }
+  .dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+  /* ── Summary bar ── */
+  #sbar {
+    background: #fff; border-top: 1px solid var(--border);
+    padding: 9px 16px; display: flex; gap: 0; flex-shrink: 0;
+  }
+  .si { flex: 1; text-align: center; position: relative; }
+  .si:not(:last-child)::after { content:''; position:absolute; right:0; top:15%; height:70%; width:1px; background: var(--border); }
+  .sl { font-size: 10px; color: #999; display: block; margin-bottom: 2px; font-weight: 500; }
+  .sv { font-size: 13px; font-weight: 600; }
+  .sv.red { color: #E24B4A; } .sv.grn { color: #1D9E75; }
+
+  /* ── Input ── */
+  #iarea {
+    background: #F0F2F0;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + var(--safe-bottom));
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #minput {
+    flex: 1; border: none; border-radius: 22px;
+    padding: 10px 16px; font-size: 14px;
+    background: #fff; outline: none;
+    font-family: inherit; color: #111;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  #sbtn {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--gh); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; box-shadow: 0 2px 6px rgba(7,94,84,0.35);
+    transition: all 0.15s;
+  }
+  #sbtn:active { transform: scale(0.93); }
+  #sbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+  #sbtn i { color: #fff; font-size: 19px; }
+
+  /* ── API key screen ── */
+  #apikey-screen {
+    position: absolute; inset: 0; z-index: 100;
+    background: var(--bg-chat);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px;
+    gap: 16px;
+  }
+  #apikey-screen.hidden { display: none; }
+  .ak-icon { font-size: 48px; margin-bottom: 4px; }
+  .ak-title { font-size: 20px; font-weight: 700; color: #111; text-align: center; }
+  .ak-sub { font-size: 13px; color: #666; text-align: center; line-height: 1.6; }
+  .ak-input {
+    width: 100%; border: 1.5px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; font-size: 14px;
+    font-family: inherit; outline: none; background: #fff;
+    transition: border 0.2s;
+  }
+  .ak-input:focus { border-color: var(--gm); }
+  .ak-btn {
+    width: 100%; padding: 13px; border-radius: 10px;
+    background: var(--gh); color: #fff; border: none;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: inherit;
+  }
+  .ak-hint { font-size: 11px; color: #999; text-align: center; line-height: 1.6; }
+  .ak-link { color: var(--gm); text-decoration: underline; }
+
+  /* ── Dashboard ── */
+  #dash {
+    display: none; flex: 1; overflow-y: auto;
+    padding: 12px; background: #f3f3f3;
+    flex-direction: column; gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .dc {
+    background: #fff; border-radius: var(--radius);
+    border: 1px solid var(--border); padding: 14px;
+  }
+  .dt {
+    font-size: 13px; font-weight: 600; color: #666;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+  }
+  .wr {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 0; border-bottom: 1px solid var(--border);
+  }
+  .wr:last-child { border-bottom: none; }
+  .wn { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 9px; color: #222; }
+  .wi {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .wc{background:#FFF3CD;color:#856404} .wm{background:#D1ECF1;color:#0C5460} .ws{background:#F8D7DA;color:#721C24}
+  .cbr { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .cbl { font-size: 11px; width: 60px; color: #888; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cbb { flex: 1; height: 8px; border-radius: 4px; background: #eee; overflow: hidden; }
+  .cbf { height: 100%; border-radius: 4px; background: #E24B4A; }
+  .cba { font-size: 11px; font-weight: 600; width: 72px; text-align: right; color: #222; }
+  .tlr { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .tlr:last-child { border-bottom: none; }
+  .tll { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .tli { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; background: #f5f5f5; }
+  .tld { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; color: #222; }
+  .tlm { font-size: 11px; color: #999; }
+  .expbtn {
+    width: 100%; padding: 13px; border-radius: 10px;
+    background: var(--gh); color: #fff; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: inherit;
+  }
+  .empty { text-align: center; padding: 28px; color: #bbb; font-size: 13px; }
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; background: rgba(7,94,84,0.08);
+    color: var(--gh); padding: 2px 8px;
+    border-radius: 10px; margin-bottom: 5px; font-weight: 600;
+  }
+  .toast {
+    position: fixed; bottom: calc(80px + var(--safe-bottom));
+    left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.78); color: #fff;
+    padding: 9px 18px; border-radius: 22px; font-size: 13px;
+    display: none; z-index: 200; white-space: nowrap;
+    backdrop-filter: blur(6px); pointer-events: none;
+  }
+
+  /* ── Settings panel ── */
+  #settings-panel {
+    position: absolute; inset: 0; z-index: 50;
+    background: #f3f3f3; display: none;
+    flex-direction: column; overflow-y: auto;
+  }
+  #settings-panel.open { display: flex; }
+  .sp-header {
+    background: var(--gh); padding: 14px 16px;
+    padding-top: calc(14px + var(--safe-top));
+    display: flex; align-items: center; gap: 12px;
+  }
+  .sp-back { background: none; border: none; color: #fff; cursor: pointer; font-size: 22px; padding: 0; }
+  .sp-title { color: #fff; font-size: 17px; font-weight: 600; font-family: inherit; }
+  .sp-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .sp-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); padding: 14px 16px; }
+  .sp-label { font-size: 12px; font-weight: 600; color: #888; margin-bottom: 8px; letter-spacing: 0.5px; }
+  .sp-input {
+    width: 100%; border: 1.5px solid var(--border); border-radius: 9px;
+    padding: 11px 13px; font-size: 14px; font-family: inherit;
+    outline: none; background: #fafafa;
+  }
+  .sp-input:focus { border-color: var(--gm); }
+  .sp-save {
+    width: 100%; padding: 12px; border-radius: 9px;
+    background: var(--gh); color: #fff; border: none;
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+    margin-top: 4px;
+  }
+  .sp-danger {
+    width: 100%; padding: 12px; border-radius: 9px;
+    background: rgba(226,75,74,0.08); color: #E24B4A;
+    border: 1px solid rgba(226,75,74,0.2);
+    font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .sp-hint { font-size: 12px; color: #999; line-height: 1.6; margin-top: 6px; }
+  .sp-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .sp-row-label { font-size: 14px; color: #222; font-weight: 500; }
+  .sp-row-val { font-size: 14px; color: #666; }
+
+  /* ── Gear button ── */
+  #gear-btn { background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 20px; padding: 2px; }
+
+  @media (min-width: 481px) {
+    #app { box-shadow: 0 0 40px rgba(0,0,0,0.2); border-radius: 24px; height: min(700px, 96dvh); margin-top: max(2dvh, 8px); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- API Key first-run screen -->
+  <div id="apikey-screen">
+    <div class="ak-icon">💰</div>
+    <div class="ak-title">Selamat datang di Dompetku!</div>
+    <div class="ak-sub">Masukkan Google Gemini API Key kamu.<br>Key disimpan di HP kamu saja, tidak dikirim ke mana-mana selain ke Google.</div>
+    <input class="ak-input" id="ak-field" type="text" placeholder="AIzaSy..." autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" />
+    <button class="ak-btn" onclick="saveApiKey()">Mulai Pakai</button>
+    <div class="ak-hint">
+      Belum punya API key? Daftar <b>gratis</b> di<br>
+      <a class="ak-link" href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a><br>
+      Gratis permanen, tidak perlu kartu kredit.
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="settings-panel">
+    <div class="sp-header">
+      <button class="sp-back" onclick="closeSettings()"><i class="ti ti-arrow-left"></i></button>
+      <span class="sp-title">Pengaturan</span>
+    </div>
+    <div class="sp-body">
+      <div class="sp-card">
+        <div class="sp-label">GEMINI API KEY</div>
+        <input class="sp-input" id="sp-ak-field" type="text" placeholder="AIzaSy..." autocorrect="off" autocapitalize="none" spellcheck="false" />
+        <button class="sp-save" onclick="saveApiKeyFromSettings()">Simpan API Key</button>
+        <div class="sp-hint">Key disimpan di localStorage HP kamu saja. Gratis dari aistudio.google.com/apikey</div>
+      </div>
+      <div class="sp-card">
+        <div class="sp-label">INFO</div>
+        <div class="sp-row"><span class="sp-row-label">Total transaksi</span><span class="sp-row-val" id="sp-count">0</span></div>
+        <div class="sp-row"><span class="sp-row-label">Data disimpan di</span><span class="sp-row-val">localStorage</span></div>
+      </div>
+      <div class="sp-card">
+        <div class="sp-label">DATA</div>
+        <button class="sp-danger" onclick="clearAllData()">🗑️ Hapus semua data transaksi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div id="header">
+    <div id="hav">💰</div>
+    <div id="hinfo"><div id="hname">Dompetku</div><div id="hsub">powered by Claude AI</div></div>
+    <button id="gear-btn" onclick="openSettings()"><i class="ti ti-settings"></i></button>
+    <div id="htabs">
+      <button class="htab active" onclick="switchTab('chat')">Chat</button>
+      <button class="htab" onclick="switchTab('dashboard')">Ringkasan</button>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat-area">
+    <div class="msg-wrap in"><div class="bubble in">
+      Halo! 👋 Ketik pengeluaran atau pemasukan kamu.<br><br>
+      <b>Contoh input:</b><br>
+      <i>nasi padang veteran 13rb qris mandiri</i><br>
+      <i>dikirimin mba dewi 300rb mandiri</i><br>
+      <i>beli sabun + shampo 47500 cash</i><br>
+      <i>beli dkriuk 26rb mandiri, dibayar ihsan 13rb cash</i><br><br>
+      <b>Edit / hapus:</b><br>
+      <i>edit es teh jadi 8 ribu</i><br>
+      <i>hapus transaksi nasi padang tadi</i>
+    <div class="btime">09:00</div></div></div>
+  </div>
+
+  <div id="typing">
+    <div class="bubble in" style="padding:10px 14px;">
+      <div style="display:flex;gap:4px;align-items:center;">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <span style="font-size:11px;color:#aaa;margin-left:4px;">AI lagi mikir...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary bar -->
+  <div id="sbar">
+    <div class="si"><span class="sl">Keluar hari ini</span><span class="sv red" id="sout">Rp 0</span></div>
+    <div class="si"><span class="sl">Masuk hari ini</span><span class="sv grn" id="sin">Rp 0</span></div>
+    <div class="si"><span class="sl">Transaksi</span><span class="sv" id="scnt">0</span></div>
+  </div>
+
+  <!-- Input -->
+  <div id="iarea">
+    <input id="minput" type="text" placeholder="Tulis transaksi atau 'edit ...'" autocomplete="off" />
+    <button id="sbtn" aria-label="Kirim" onclick="sendMsg()"><i class="ti ti-send"></i></button>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dash">
+    <div class="dc"><div class="dt"><i class="ti ti-wallet"></i> Saldo per dompet (net)</div><div id="wlist"></div></div>
+    <div class="dc"><div class="dt"><i class="ti ti-chart-bar"></i> Pengeluaran per kategori</div><div id="cchart"></div></div>
+    <div class="dc"><div class="dt"><i class="ti ti-list"></i> Transaksi terakhir</div><div id="tlist"></div></div>
+    <button class="expbtn" onclick="exportCSV()"><i class="ti ti-download"></i> Export CSV / Excel</button>
+    <div style="height: calc(8px + var(--safe-bottom))"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────
+const WALLETS = { cash:'Cash', mandiri:'Mandiri', shopeepay:'ShopeePay' };
+const CAT_META = {
+  food:      { label:'Makan & Minum', icon:'🍜' },
+  transport: { label:'Transportasi',  icon:'🚗' },
+  belanja:   { label:'Belanja',        icon:'🛍️' },
+  hiburan:   { label:'Hiburan',        icon:'🎬' },
+  tagihan:   { label:'Tagihan',        icon:'💡' },
+  pemasukan: { label:'Pemasukan',      icon:'💰' },
+  lainnya:   { label:'Lainnya',        icon:'📦' }
+};
+const STORAGE_KEY = 'dompetku_txns_v4';
+const APIKEY_KEY  = 'dompetku_apikey';
+
+const PARSE_SYSTEM = `Kamu adalah parser transaksi keuangan. Analisis teks dari user dan tentukan intent-nya.
+
+Intent bisa:
+1. "add" - menambah transaksi baru
+2. "edit" - mengedit transaksi yang sudah ada
+3. "delete" - menghapus transaksi
+4. "ambiguous" - maksud user tidak jelas
+
+Untuk intent "add", ekstrak semua transaksi:
+- type: "expense" atau "income"
+- wallet: "cash","mandiri","shopeepay","unknown_qris"
+- category: "food","transport","belanja","hiburan","tagihan","pemasukan","lainnya"
+- amount: integer rupiah
+- desc: nama item bersih (tanpa kata kerja beli/bayar, tanpa nominal, tanpa nama dompet)
+
+Untuk intent "edit" atau "delete", ekstrak:
+- search_desc: kata kunci deskripsi transaksi yang mau diedit
+- search_time: waktu yang disebutkan user jika ada, format "HH.MM" atau null
+- changes: object field yang mau diubah (untuk edit): {amount?, wallet?, desc?, category?, type?}
+
+Pemasukan: kiriman uang, gaji, dibayar orang, bayar balik, top up, isi saldo, dapat uang dari seseorang.
+Pengeluaran: beli, bayar, belanja, jajan, order, dll.
+unknown_qris: ada kata "qris" tapi tidak ada nama dompet spesifik (mandiri/shopeepay).
+
+Kembalikan HANYA JSON valid, tidak ada teks lain.
+add:    {"intent":"add","transactions":[{"type":"expense","wallet":"mandiri","category":"food","amount":13000,"desc":"Nasi padang veteran"}]}
+edit:   {"intent":"edit","search_desc":"es teh","search_time":null,"changes":{"amount":7000}}
+delete: {"intent":"delete","search_desc":"es teh","search_time":null}
+ambiguous: {"intent":"ambiguous","message":"Maksudmu kurang jelas, bisa diperjelas?"}`;
+
+// ── State ──────────────────────────────────────────────────
+let transactions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+let busy = false;
+
+// ── API Key ────────────────────────────────────────────────
+function getApiKey() { return localStorage.getItem(APIKEY_KEY) || ''; }
+
+function saveApiKey() {
+  const key = document.getElementById('ak-field').value.trim();
+  if (!key) { alert('API key tidak boleh kosong'); return; }
+  if (key.length < 10) { alert('API key terlalu pendek, cek lagi ya'); return; }
+  localStorage.setItem(APIKEY_KEY, key);
+  document.getElementById('apikey-screen').classList.add('hidden');
+}
+
+function saveApiKeyFromSettings() {
+  const key = document.getElementById('sp-ak-field').value.trim();
+  if (!key || key.length < 10) { showToast('API key tidak valid'); return; }
+  localStorage.setItem(APIKEY_KEY, key);
+  showToast('API key tersimpan ✅');
+}
+
+function openSettings() {
+  document.getElementById('sp-ak-field').value = getApiKey();
+  document.getElementById('sp-count').textContent = transactions.length;
+  document.getElementById('settings-panel').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-panel').classList.remove('open');
+}
+
+function clearAllData() {
+  if (!confirm('Hapus semua ' + transactions.length + ' transaksi? Tidak bisa di-undo.')) return;
+  transactions = [];
+  saveTxns();
+  updateSummary();
+  showToast('Semua data dihapus');
+  closeSettings();
+}
+
+// Check on load
+window.addEventListener('DOMContentLoaded', () => {
+  if (getApiKey()) {
+    document.getElementById('apikey-screen').classList.add('hidden');
+  }
+  updateSummary();
+  document.getElementById('minput').focus();
+});
+
+// ── Helpers ────────────────────────────────────────────────
+function fmtRp(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); }
+function nowTime() { return new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'}); }
+function nowDate() { return new Date().toLocaleDateString('id-ID'); }
+function saveTxns() { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); }
+
+// ── AI call (Gemini) ───────────────────────────────────────
+async function callAI(userText) {
+  const apiKey = getApiKey();
+  if (!apiKey) { openSettings(); throw new Error('No API key'); }
+
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: PARSE_SYSTEM + '\n\nInput user: ' + userText }]
+        }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.1
+        }
+      })
+    }
+  );
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    if (resp.status === 400) throw new Error('API key tidak valid, cek di pengaturan ⚙️');
+    if (resp.status === 403) throw new Error('API key tidak punya akses, cek di pengaturan ⚙️');
+    if (resp.status === 429) throw new Error('Terlalu banyak request, tunggu sebentar');
+    throw new Error(err.error?.message || 'Error ' + resp.status);
+  }
+
+  const data = await resp.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+}
+
+// ── Find transaction ───────────────────────────────────────
+function findTargetTxn(searchDesc, searchTime) {
+  if (!searchDesc) return null;
+  const lower = searchDesc.toLowerCase();
+  const words = lower.split(/\s+/).filter(w => w.length > 1);
+
+  let candidates = transactions.filter(t => {
+    const dl = t.desc.toLowerCase();
+    return words.some(w => dl.includes(w));
+  });
+
+  if (!candidates.length) return null;
+
+  if (searchTime) {
+    // Normalize: "12.00" or "12:00" → "12.00"
+    const norm = searchTime.replace(':', '.');
+    const timeMatch = candidates.find(t => t.time === norm || t.time.replace(':','.') === norm);
+    if (timeMatch) return timeMatch;
+  }
+
+  return candidates[candidates.length - 1]; // most recent
+}
+
+// ── UI helpers ─────────────────────────────────────────────
+function addBubble(html, type) {
+  const ca = document.getElementById('chat-area');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-wrap ' + type;
+  const bbl = document.createElement('div');
+  bbl.className = 'bubble ' + type;
+  const chk = type === 'out' ? '<i class="ti ti-checks chk"></i>' : '';
+  bbl.innerHTML = html + `<div class="btime">${nowTime()}${chk}</div>`;
+  wrap.appendChild(bbl);
+  ca.appendChild(wrap);
+  ca.scrollTop = 99999;
+}
+
+function addButtons(options) {
+  const ca = document.getElementById('chat-area');
+  const outer = document.createElement('div');
+  outer.className = 'msg-wrap in';
+  const wrap = document.createElement('div');
+  wrap.className = 'qbtns';
+  wrap.style.padding = '2px 4px 8px';
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'qbtn' + (opt.red ? ' red' : '');
+    btn.textContent = opt.label;
+    btn.onclick = () => { outer.remove(); opt.action(); };
+    wrap.appendChild(btn);
+  });
+  outer.appendChild(wrap);
+  ca.appendChild(outer);
+  ca.scrollTop = 99999;
+}
+
+function showTyping() {
+  document.getElementById('typing').style.display = 'flex';
+  document.getElementById('chat-area').scrollTop = 99999;
+}
+function hideTyping() { document.getElementById('typing').style.display = 'none'; }
+
+function buildCard(txn, mode) {
+  const cat = CAT_META[txn.category] || CAT_META.lainnya;
+  const wLabel = { cash:'Cash 💵', mandiri:'Mandiri 🏦', shopeepay:'ShopeePay 🛒', unknown_qris:'QRIS ❓' };
+  const tc = mode === 'edited' ? 'edited' : mode === 'deleted' ? 'deleted' : txn.type === 'income' ? 'income' : 'expense';
+  const sign = txn.type === 'income' ? '+' : '-';
+  return `<div class="txn-card ${tc}">
+    <div class="txn-amount">${sign}${fmtRp(txn.amount)}</div>
+    <div class="txn-row"><span class="tlbl">Deskripsi</span><span class="tval">${txn.desc}</span></div>
+    <div class="txn-row"><span class="tlbl">Kategori</span><span class="tval"><span class="cbadge c-${txn.category}">${cat.icon} ${cat.label}</span></span></div>
+    <div class="txn-row"><span class="tlbl">Dompet</span><span class="tval">${wLabel[txn.wallet] || txn.wallet}</span></div>
+    <div class="txn-row"><span class="tlbl">Waktu</span><span class="tval">${txn.date} ${txn.time}</span></div>
+  </div>`;
+}
+
+function buildDiff(original, changes) {
+  const wLabel = { cash:'Cash', mandiri:'Mandiri', shopeepay:'ShopeePay' };
+  let rows = '';
+  if (changes.amount !== undefined && changes.amount !== original.amount)
+    rows += `<div class="confirm-row"><span class="clbl">Nominal</span><span class="cval"><span class="diff-old">${fmtRp(original.amount)}</span> → <span class="diff-new">${fmtRp(changes.amount)}</span></span></div>`;
+  if (changes.wallet && changes.wallet !== original.wallet)
+    rows += `<div class="confirm-row"><span class="clbl">Dompet</span><span class="cval"><span class="diff-old">${wLabel[original.wallet]||original.wallet}</span> → <span class="diff-new">${wLabel[changes.wallet]||changes.wallet}</span></span></div>`;
+  if (changes.desc && changes.desc !== original.desc)
+    rows += `<div class="confirm-row"><span class="clbl">Nama</span><span class="cval"><span class="diff-old">${original.desc}</span> → <span class="diff-new">${changes.desc}</span></span></div>`;
+  if (changes.category && changes.category !== original.category) {
+    const oc = CAT_META[original.category]||CAT_META.lainnya;
+    const nc = CAT_META[changes.category]||CAT_META.lainnya;
+    rows += `<div class="confirm-row"><span class="clbl">Kategori</span><span class="cval"><span class="diff-old">${oc.icon} ${oc.label}</span> → <span class="diff-new">${nc.icon} ${nc.label}</span></span></div>`;
+  }
+  if (!rows) rows = `<div style="font-size:12px;color:#aaa;padding:4px 0">Tidak ada perubahan terdeteksi.</div>`;
+  return `<div class="confirm-box"><div class="ctitle">📝 Perubahan untuk <b>${original.desc}</b>:</div>${rows}</div>`;
+}
+
+function commitTxn(txn) {
+  transactions.push({ ...txn, date: nowDate(), time: nowTime() });
+  saveTxns();
+  updateSummary();
+}
+
+// ── Main send ──────────────────────────────────────────────
+async function sendMsg() {
+  if (busy) return;
+  const input = document.getElementById('minput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  busy = true;
+  document.getElementById('sbtn').disabled = true;
+
+  addBubble(text, 'out');
+  showTyping();
+
+  try {
+    const result = await callAI(text);
+    hideTyping();
+
+    if (result.intent === 'add') {
+      handleAdd(result.transactions || []);
+    } else if (result.intent === 'edit' || result.intent === 'delete') {
+      handleEditDelete(result);
+    } else {
+      addBubble(`<div class="ai-badge">✦ AI</div><br>${result.message || 'Hmm, tidak paham 🤔 Coba tulis ulang ya.'}`, 'in');
+    }
+  } catch(e) {
+    hideTyping();
+    const msg = e.message || 'Error tidak diketahui';
+    if (msg.includes('API key')) {
+      addBubble(`<div class="ai-badge">✦ AI</div><br>⚠️ ${msg}. Cek API key di pengaturan ⚙️`, 'in');
+    } else {
+      addBubble(`<div class="ai-badge">✦ AI</div><br>Aduh, ada error: ${msg} 😅`, 'in');
+    }
+    console.error(e);
+  }
+
+  busy = false;
+  document.getElementById('sbtn').disabled = false;
+  input.focus();
+}
+
+function handleAdd(txns) {
+  if (!txns.length) {
+    addBubble('<div class="ai-badge">✦ AI</div><br>Hmm, tidak bisa ekstrak transaksi 🤔 Tulis nominal yang jelas ya.', 'in');
+    return;
+  }
+  const hasQ = txns.some(t => t.wallet === 'unknown_qris');
+  if (hasQ && txns.length === 1) {
+    const t = txns[0];
+    addBubble(`<div class="ai-badge">✦ AI</div><br>QRIS yang mana nih untuk <b>${t.desc}</b>?`, 'in');
+    addButtons([
+      { label:'💳 Mandiri',    action: () => finalize([{...t, wallet:'mandiri'}]) },
+      { label:'🛒 ShopeePay', action: () => finalize([{...t, wallet:'shopeepay'}]) },
+      { label:'💵 Cash',       action: () => finalize([{...t, wallet:'cash'}]) }
+    ]);
+    return;
+  }
+  txns.forEach(t => { if (t.wallet === 'unknown_qris') t.wallet = 'cash'; });
+  finalize(txns);
+}
+
+function finalize(txns) {
+  const phrases = ['✅ Dicatat!', 'Oke, tersimpan! ✅', 'Siap! ✅'];
+  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+  let html = `<div class="ai-badge">✦ AI</div><br>`;
+  html += txns.length > 1 ? `✅ ${txns.length} transaksi dicatat!` : phrase;
+  txns.forEach(t => {
+    commitTxn(t);
+    html += buildCard({...t, date: nowDate(), time: nowTime()});
+  });
+  addBubble(html, 'in');
+}
+
+function handleEditDelete(result) {
+  const isDel = result.intent === 'delete';
+  const target = findTargetTxn(result.search_desc, result.search_time);
+
+  if (!target) {
+    addBubble(`<div class="ai-badge">✦ AI</div><br>Tidak menemukan transaksi "<b>${result.search_desc}</b>" 🤔<br><small style="color:#aaa">Coba sebutkan lebih spesifik atau tambahkan waktunya.</small>`, 'in');
+    return;
+  }
+
+  if (isDel) {
+    addBubble(`<div class="ai-badge">✦ AI</div><br>Hapus transaksi ini?${buildCard(target, 'deleted')}`, 'in');
+    addButtons([
+      { label:'🗑️ Ya, hapus', red: true, action: () => {
+        const idx = transactions.indexOf(target);
+        if (idx > -1) { transactions.splice(idx, 1); saveTxns(); updateSummary(); }
+        addBubble(`<div class="ai-badge">✦ AI</div><br>✅ <b>${target.desc}</b> berhasil dihapus.`, 'in');
+      }},
+      { label:'❌ Batal', action: () => addBubble('Oke, dibatalkan.', 'in') }
+    ]);
+    return;
+  }
+
+  const changes = result.changes || {};
+  addBubble(`<div class="ai-badge">✦ AI</div><br>Ini transaksi yang aku temukan:${buildCard(target)}${buildDiff(target, changes)}`, 'in');
+  addButtons([
+    { label:'✅ Ya, edit', action: () => {
+      const idx = transactions.indexOf(target);
+      if (idx > -1) {
+        Object.assign(transactions[idx], changes);
+        saveTxns(); updateSummary();
+        addBubble(`<div class="ai-badge">✦ AI</div><br>✅ Berhasil diupdate!${buildCard(transactions[idx], 'edited')}`, 'in');
+      }
+    }},
+    { label:'❌ Batal', action: () => addBubble('Oke, tidak jadi diedit.', 'in') }
+  ]);
+}
+
+// ── Summary & Dashboard ────────────────────────────────────
+function updateSummary() {
+  const today = nowDate();
+  const td = transactions.filter(t => t.date === today);
+  document.getElementById('sout').textContent = fmtRp(td.filter(t => t.type !== 'income').reduce((s,t) => s+t.amount, 0));
+  document.getElementById('sin').textContent  = fmtRp(td.filter(t => t.type === 'income').reduce((s,t) => s+t.amount, 0));
+  document.getElementById('scnt').textContent = transactions.length;
+}
+
+function renderDash() {
+  const wNet = { cash:0, mandiri:0, shopeepay:0 };
+  const cTot = {};
+  transactions.forEach(t => {
+    const k = ['cash','mandiri','shopeepay'].includes(t.wallet) ? t.wallet : 'cash';
+    wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
+    if (t.type !== 'income') cTot[t.category] = (cTot[t.category]||0) + t.amount;
+  });
+
+  const wCls = { cash:'wc', mandiri:'wm', shopeepay:'ws' };
+  document.getElementById('wlist').innerHTML = Object.entries(WALLETS).map(([k,v]) => {
+    const n = wNet[k]||0;
+    const col = n >= 0 ? '#1D9E75' : '#E24B4A';
+    return `<div class="wr"><div class="wn"><div class="wi ${wCls[k]}">${k[0].toUpperCase()}</div>${v}</div><div style="font-size:15px;font-weight:600;color:${col}">${n>=0?'+':''}${fmtRp(n)}</div></div>`;
+  }).join('');
+
+  const entries = Object.entries(cTot).sort((a,b) => b[1]-a[1]);
+  const maxC = Math.max(...entries.map(e => e[1]), 1);
+  document.getElementById('cchart').innerHTML = entries.length ? entries.map(([k,v]) => {
+    const m = CAT_META[k]||CAT_META.lainnya;
+    return `<div class="cbr"><div class="cbl">${m.icon} ${m.label.split(' ')[0]}</div><div class="cbb"><div class="cbf" style="width:${Math.round(v/maxC*100)}%"></div></div><div class="cba">${fmtRp(v)}</div></div>`;
+  }).join('') : '<div class="empty">Belum ada pengeluaran</div>';
+
+  const recent = [...transactions].reverse().slice(0, 8);
+  document.getElementById('tlist').innerHTML = recent.length ? recent.map(t => {
+    const m = CAT_META[t.category]||CAT_META.lainnya;
+    const col = t.type === 'income' ? '#1D9E75' : '#E24B4A';
+    const sign = t.type === 'income' ? '+' : '-';
+    return `<div class="tlr"><div class="tll"><div class="tli">${m.icon}</div><div><div class="tld">${t.desc}</div><div class="tlm">${t.date} ${t.time} · ${WALLETS[t.wallet]||t.wallet}</div></div></div><div style="font-size:13px;font-weight:600;color:${col};flex-shrink:0">${sign}${fmtRp(t.amount)}</div></div>`;
+  }).join('') : '<div class="empty">Belum ada transaksi</div>';
+}
+
+// ── Tab switching ──────────────────────────────────────────
+function switchTab(tab) {
+  const isChat = tab === 'chat';
+  document.getElementById('chat-area').style.display = isChat ? 'flex' : 'none';
+  document.getElementById('sbar').style.display      = isChat ? 'flex' : 'none';
+  document.getElementById('iarea').style.display     = isChat ? 'flex' : 'none';
+  document.getElementById('typing').style.display    = 'none';
+  document.getElementById('dash').style.display      = isChat ? 'none' : 'flex';
+  document.querySelectorAll('.htab').forEach((b,i) => b.classList.toggle('active', (i===0) === isChat));
+  document.getElementById('hsub').textContent = isChat ? 'powered by Claude AI' : 'ringkasan keuanganmu';
+  if (!isChat) renderDash();
+}
+
+// ── Export CSV ─────────────────────────────────────────────
+function exportCSV() {
+  if (!transactions.length) { showToast('Belum ada transaksi'); return; }
+  const hdr = 'Tanggal,Waktu,Deskripsi,Tipe,Kategori,Dompet,Jumlah\n';
+  const rows = transactions.map(t => {
+    const cat = CAT_META[t.category]?.label || 'Lainnya';
+    return `${t.date},${t.time},"${t.desc}",${t.type==='income'?'Pemasukan':'Pengeluaran'},${cat},${WALLETS[t.wallet]||t.wallet},${t.amount}`;
+  }).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+hdr+rows], {type:'text/csv;charset=utf-8;'}));
+  a.download = 'dompetku_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('CSV berhasil didownload! ✅');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+document.getElementById('minput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+
+// ── PWA Install ────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-bar').style.display = 'flex';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-bar').style.display = 'none';
+});
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  }
+}
+</script>
+
+<!-- PWA install banner -->
+<div id="install-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:#075E54;color:#fff;padding:10px 16px;align-items:center;gap:10px;z-index:300;border-top:1px solid rgba(255,255,255,0.15);">
+  <span style="flex:1;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;">📲 Install Dompetku ke home screen</span>
+  <button onclick="installApp()" style="background:#25D366;color:#fff;border:none;border-radius:18px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Install</button>
+  <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:20px;padding:0 4px;">×</button>
+</div>
+</body>
+</html>
