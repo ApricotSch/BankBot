@@ -411,14 +411,6 @@
   <div id="chat-area">
     <div class="msg-wrap in"><div class="bubble in">
       Halo! 👋 Ketik pengeluaran atau pemasukan kamu.<br><br>
-      <b>Contoh input:</b><br>
-      <i>nasi padang veteran 13rb qris mandiri</i><br>
-      <i>dikirimin mba dewi 300rb mandiri</i><br>
-      <i>beli sabun + shampo 47500 cash</i><br>
-      <i>beli dkriuk 26rb mandiri, dibayar ihsan 13rb cash</i><br><br>
-      <b>Edit / hapus:</b><br>
-      <i>edit es teh jadi 8 ribu</i><br>
-      <i>hapus transaksi nasi padang tadi</i>
     <div class="btime">09:00</div></div></div>
   </div>
 
@@ -880,35 +872,51 @@ document.addEventListener('click', () => {
 });
 
 function renderDash() {
-  const wNet = { cash:0, mandiri:0, shopeepay:0 };
-  const cTot = {};
-  transactions.forEach(t => {
-    const k = ['cash','mandiri','shopeepay'].includes(t.wallet) ? t.wallet : 'cash';
-    wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
-    if (t.type !== 'income') cTot[t.category] = (cTot[t.category]||0) + t.amount;
-  });
+  try {
+    const wNet = { cash:0, mandiri:0, shopeepay:0 };
+    const cTot = {};
+    transactions.forEach(t => {
+      if (!t || typeof t.amount !== 'number') return;
+      const k = ['cash','mandiri','shopeepay'].includes(t.wallet) ? t.wallet : 'cash';
+      wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
+      const cat = t.category || 'lainnya';
+      if (t.type !== 'income') cTot[cat] = (cTot[cat]||0) + t.amount;
+    });
 
-  const wCls = { cash:'wc', mandiri:'wm', shopeepay:'ws' };
-  document.getElementById('wlist').innerHTML = Object.entries(WALLETS).map(([k,v]) => {
-    const n = wNet[k]||0;
-    const col = n >= 0 ? '#1D9E75' : '#E24B4A';
-    return `<div class="wr"><div class="wn"><div class="wi ${wCls[k]}">${k[0].toUpperCase()}</div>${v}</div><div style="font-size:15px;font-weight:600;color:${col}">${n>=0?'+':''}${fmtRp(n)}</div></div>`;
-  }).join('');
+    const wCls = { cash:'wc', mandiri:'wm', shopeepay:'ws' };
+    const wlistEl = document.getElementById('wlist');
+    if (wlistEl) wlistEl.innerHTML = Object.entries(WALLETS).map(([k,v]) => {
+      const n = wNet[k]||0;
+      const col = n >= 0 ? '#1D9E75' : '#E24B4A';
+      return `<div class="wr"><div class="wn"><div class="wi ${wCls[k]}">${k[0].toUpperCase()}</div>${v}</div><div style="font-size:15px;font-weight:600;color:${col}">${n>=0?'+':''}${fmtRp(n)}</div></div>`;
+    }).join('');
 
-  const entries = Object.entries(cTot).sort((a,b) => b[1]-a[1]);
-  const maxC = Math.max(...entries.map(e => e[1]), 1);
-  document.getElementById('cchart').innerHTML = entries.length ? entries.map(([k,v]) => {
-    const m = CAT_META[k]||CAT_META.lainnya;
-    return `<div class="cbr"><div class="cbl">${m.icon} ${m.label.split(' ')[0]}</div><div class="cbb"><div class="cbf" style="width:${Math.round(v/maxC*100)}%"></div></div><div class="cba">${fmtRp(v)}</div></div>`;
-  }).join('') : '<div class="empty">Belum ada pengeluaran</div>';
+    const entries = Object.entries(cTot).sort((a,b) => b[1]-a[1]);
+    const maxC = entries.length ? Math.max(...entries.map(e => e[1]), 1) : 1;
+    const cchartEl = document.getElementById('cchart');
+    if (cchartEl) cchartEl.innerHTML = entries.length ? entries.map(([k,v]) => {
+      const m = CAT_META[k] || CAT_META.lainnya;
+      return `<div class="cbr"><div class="cbl">${m.icon} ${m.label.split(' ')[0]}</div><div class="cbb"><div class="cbf" style="width:${Math.round(v/maxC*100)}%"></div></div><div class="cba">${fmtRp(v)}</div></div>`;
+    }).join('') : '<div class="empty">Belum ada pengeluaran</div>';
 
-  const recent = [...transactions].reverse().slice(0, 8);
-  document.getElementById('tlist').innerHTML = recent.length ? recent.map(t => {
-    const m = CAT_META[t.category]||CAT_META.lainnya;
-    const col = t.type === 'income' ? '#1D9E75' : '#E24B4A';
-    const sign = t.type === 'income' ? '+' : '-';
-    return `<div class="tlr"><div class="tll"><div class="tli">${m.icon}</div><div><div class="tld">${t.desc}</div><div class="tlm">${t.date} ${t.time} · ${WALLETS[t.wallet]||t.wallet}</div></div></div><div style="font-size:13px;font-weight:600;color:${col};flex-shrink:0">${sign}${fmtRp(t.amount)}</div></div>`;
-  }).join('') : '<div class="empty">Belum ada transaksi</div>';
+    const recent = [...transactions].reverse().slice(0, 8);
+    const tlistEl = document.getElementById('tlist');
+    if (tlistEl) tlistEl.innerHTML = recent.length ? recent.map(t => {
+      const m = CAT_META[t.category] || CAT_META.lainnya;
+      const col = t.type === 'income' ? '#1D9E75' : '#E24B4A';
+      const sign = t.type === 'income' ? '+' : '-';
+      const wLabel = WALLETS[t.wallet] || t.wallet || '?';
+      const desc = t.desc || '(tanpa nama)';
+      return `<div class="tlr"><div class="tll"><div class="tli">${m.icon}</div><div><div class="tld">${desc}</div><div class="tlm">${t.date||''} ${t.time||''} · ${wLabel}</div></div></div><div style="font-size:13px;font-weight:600;color:${col};flex-shrink:0">${sign}${fmtRp(t.amount)}</div></div>`;
+    }).join('') : '<div class="empty">Belum ada transaksi</div>';
+
+  } catch(err) {
+    console.error('renderDash error:', err);
+    ['wlist','cchart','tlist'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="empty">Gagal render, coba refresh halaman</div>';
+    });
+  }
 }
 
 // ── Tab switching ──────────────────────────────────────────
