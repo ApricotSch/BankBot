@@ -399,7 +399,7 @@
   <!-- Header -->
   <div id="header">
     <div id="hav">💰</div>
-    <div id="hinfo"><div id="hname">Dompetku</div></div>
+    <div id="hinfo"><div id="hname">Dompetku</div><div id="hsub">Catat Keuanganmu</div></div>
     <button id="gear-btn" onclick="openSettings()"><i class="ti ti-settings"></i></button>
     <div id="htabs">
       <button class="htab active" onclick="switchTab('chat')">Chat</button>
@@ -928,7 +928,7 @@ function switchTab(tab) {
   document.getElementById('typing').style.display    = 'none';
   document.getElementById('dash').style.display      = isChat ? 'none' : 'flex';
   document.querySelectorAll('.htab').forEach((b,i) => b.classList.toggle('active', (i===0) === isChat));
-  document.getElementById('hsub').textContent = isChat ? 'powered by Claude AI' : 'ringkasan keuanganmu';
+  document.getElementById('hsub').textContent = isChat ? 'catat keuanganmu' : 'ringkasan keuanganmu';
   if (!isChat) renderDash();
 }
 
