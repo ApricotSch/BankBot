@@ -414,14 +414,6 @@
   <div id="chat-area">
     <div class="msg-wrap in"><div class="bubble in">
       Halo! 👋 Ketik pengeluaran atau pemasukan kamu.<br><br>
-      <b>Contoh input:</b><br>
-      <i>nasi padang veteran 13rb qris mandiri</i><br>
-      <i>dikirimin mba dewi 300rb mandiri</i><br>
-      <i>beli sabun + shampo 47500 cash</i><br>
-      <i>beli dkriuk 26rb mandiri, dibayar ihsan 13rb cash</i><br><br>
-      <b>Edit / hapus:</b><br>
-      <i>edit es teh jadi 8 ribu</i><br>
-      <i>hapus transaksi nasi padang tadi</i>
     <div class="btime">09:00</div></div></div>
   </div>
 
@@ -490,9 +482,10 @@ const PARSE_SYSTEM = `Kamu adalah parser transaksi keuangan. Analisis teks dari 
 
 Intent bisa:
 1. "add" - menambah transaksi baru
-2. "edit" - mengedit transaksi yang sudah ada
-3. "delete" - menghapus transaksi
-4. "ambiguous" - maksud user tidak jelas
+2. "transfer" - pindah saldo antar dompet milik sendiri
+3. "edit" - mengedit transaksi yang sudah ada
+4. "delete" - menghapus transaksi
+5. "ambiguous" - maksud user tidak jelas
 
 Untuk intent "add", ekstrak semua transaksi:
 - type: "expense" atau "income"
@@ -501,20 +494,36 @@ Untuk intent "add", ekstrak semua transaksi:
 - amount: integer rupiah
 - desc: nama item bersih (tanpa kata kerja beli/bayar, tanpa nominal, tanpa nama dompet)
 
+Untuk intent "transfer" (WAJIB dipakai untuk tarik tunai, ambil tunai, top up dompet, pindah saldo):
+- amount: integer rupiah
+- from_wallet: dompet sumber ("cash","mandiri","shopeepay")
+- to_wallet: dompet tujuan ("cash","mandiri","shopeepay")
+- desc: deskripsi singkat
+
+ATURAN TRANSFER - ini adalah perpindahan uang antar dompet sendiri, BUKAN pemasukan:
+- "tarik tunai Xrb dari mandiri" = transfer, from:mandiri, to:cash
+- "ambil tunai Xrb mandiri" = transfer, from:mandiri, to:cash
+- "top up shopeepay Xrb dari mandiri" = transfer, from:mandiri, to:shopeepay
+- "isi saldo shopeepay Xrb" = transfer, from:mandiri, to:shopeepay
+- "pindah Xrb dari cash ke shopeepay" = transfer, from:cash, to:shopeepay
+JANGAN return intent "add" dengan type "income" untuk kasus di atas.
+
 Untuk intent "edit" atau "delete", ekstrak:
 - search_desc: kata kunci deskripsi transaksi yang mau diedit
 - search_time: waktu yang disebutkan user jika ada, format "HH.MM" atau null
 - changes: object field yang mau diubah (untuk edit): {amount?, wallet?, desc?, category?, type?}
 
-Pemasukan: kiriman uang, gaji, dibayar orang, bayar balik, top up, isi saldo, dapat uang dari seseorang.
-Pengeluaran: beli, bayar, belanja, jajan, order, dll.
-unknown_qris: ada kata "qris" tapi tidak ada nama dompet spesifik (mandiri/shopeepay).
+Pemasukan (income): kiriman uang dari orang lain, gaji, dibayar orang, bayar balik utang, dapat hadiah uang.
+Pengeluaran (expense): beli, bayar, belanja, jajan, order, makan, dll.
+Transfer: tarik tunai, ambil tunai, top up dompet digital, pindah saldo antar dompet sendiri.
+unknown_qris: ada kata "qris" tapi tidak ada nama dompet spesifik.
 
 Kembalikan HANYA JSON valid, tidak ada teks lain.
-add:    {"intent":"add","transactions":[{"type":"expense","wallet":"mandiri","category":"food","amount":13000,"desc":"Nasi padang veteran"}]}
-edit:   {"intent":"edit","search_desc":"es teh","search_time":null,"changes":{"amount":7000}}
-delete: {"intent":"delete","search_desc":"es teh","search_time":null}
-ambiguous: {"intent":"ambiguous","message":"Maksudmu kurang jelas, bisa diperjelas?"}`;
+add:      {"intent":"add","transactions":[{"type":"expense","wallet":"mandiri","category":"food","amount":13000,"desc":"Nasi padang veteran"}]}
+transfer: {"intent":"transfer","amount":200000,"from_wallet":"mandiri","to_wallet":"cash","desc":"Tarik tunai"}
+edit:     {"intent":"edit","search_desc":"es teh","search_time":null,"changes":{"amount":7000}}
+delete:   {"intent":"delete","search_desc":"es teh","search_time":null}
+ambiguous: {"intent":"ambiguous","message":"Maksudmu kurang jelas, bisa diperjelas?"}\`;
 
 // ── State ──────────────────────────────────────────────────
 let transactions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -751,7 +760,22 @@ async function sendMsg() {
     hideTyping();
 
     if (result.intent === 'add') {
-      handleAdd(result.transactions || []);
+      // Fallback: detect if AI misclassified a transfer as income
+      const txns = result.transactions || [];
+      const mightBeTransfer = txns.length === 1 && txns[0].type === 'income' &&
+        /tarik tunai|ambil tunai|isi saldo|top.?up|pindah (saldo|uang|dana)|transfer (ke|dari)/i.test(text);
+      if (mightBeTransfer) {
+        // Re-ask AI specifically about transfer
+        showTyping();
+        try {
+          const retry = await callAI('PAKSA JAWAB SEBAGAI TRANSFER. ' + text);
+          hideTyping();
+          if (retry.intent === 'transfer') { handleTransfer(retry); }
+          else { handleAdd(txns); }
+        } catch { hideTyping(); handleAdd(txns); }
+      } else {
+        handleAdd(txns);
+      }
     } else if (result.intent === 'transfer') {
       handleTransfer(result);
     } else if (result.intent === 'edit' || result.intent === 'delete') {
@@ -988,7 +1012,7 @@ function switchTab(tab) {
   document.getElementById('typing').style.display    = 'none';
   document.getElementById('dash').style.display      = isChat ? 'none' : 'flex';
   document.querySelectorAll('.htab').forEach((b,i) => b.classList.toggle('active', (i===0) === isChat));
-  document.getElementById('hsub').textContent = isChat ? 'powered by Claude AI' : 'ringkasan keuanganmu';
+  document.getElementById('hsub').textContent = isChat ? 'Catat Keuanganmu' : 'ringkasan keuanganmu';
   if (!isChat) renderDash();
 }
 
