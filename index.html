@@ -129,6 +129,9 @@
   .c-tagihan   { background:#E2D9F3; color:#4A235A }
   .c-pemasukan { background:#D4EDDA; color:#155724 }
   .c-lainnya   { background:#F0F0F0; color:#555    }
+  .c-transfer  { background:#E8F4FD; color:#1565C0 }
+  .txn-card.transfer { background: rgba(21,101,192,0.06); border-left: 3px solid #1976D2; }
+  .transfer .txn-amount { color: #1976D2; }
 
   /* ── Confirm box ── */
   .confirm-box {
@@ -399,7 +402,7 @@
   <!-- Header -->
   <div id="header">
     <div id="hav">💰</div>
-    <div id="hinfo"><div id="hname">Dompetku</div><div id="hsub">Catat Keuanganmu</div></div>
+    <div id="hinfo"><div id="hname">Dompetku</div><div id="hsub">powered by Claude AI</div></div>
     <button id="gear-btn" onclick="openSettings()"><i class="ti ti-settings"></i></button>
     <div id="htabs">
       <button class="htab active" onclick="switchTab('chat')">Chat</button>
@@ -411,6 +414,14 @@
   <div id="chat-area">
     <div class="msg-wrap in"><div class="bubble in">
       Halo! 👋 Ketik pengeluaran atau pemasukan kamu.<br><br>
+      <b>Contoh input:</b><br>
+      <i>nasi padang veteran 13rb qris mandiri</i><br>
+      <i>dikirimin mba dewi 300rb mandiri</i><br>
+      <i>beli sabun + shampo 47500 cash</i><br>
+      <i>beli dkriuk 26rb mandiri, dibayar ihsan 13rb cash</i><br><br>
+      <b>Edit / hapus:</b><br>
+      <i>edit es teh jadi 8 ribu</i><br>
+      <i>hapus transaksi nasi padang tadi</i>
     <div class="btime">09:00</div></div></div>
   </div>
 
@@ -469,6 +480,7 @@ const CAT_META = {
   hiburan:   { label:'Hiburan',        icon:'🎬' },
   tagihan:   { label:'Tagihan',        icon:'💡' },
   pemasukan: { label:'Pemasukan',      icon:'💰' },
+  transfer:  { label:'Transfer',       icon:'🔄' },
   lainnya:   { label:'Lainnya',        icon:'📦' }
 };
 const STORAGE_KEY = 'dompetku_txns_v4';
@@ -740,6 +752,8 @@ async function sendMsg() {
 
     if (result.intent === 'add') {
       handleAdd(result.transactions || []);
+    } else if (result.intent === 'transfer') {
+      handleTransfer(result);
     } else if (result.intent === 'edit' || result.intent === 'delete') {
       handleEditDelete(result);
     } else {
@@ -759,6 +773,47 @@ async function sendMsg() {
   busy = false;
   document.getElementById('sbtn').disabled = false;
   input.focus();
+}
+
+function handleTransfer(result) {
+  const { amount, from_wallet, to_wallet, desc } = result;
+  const wNames = { cash:'Cash 💵', mandiri:'Mandiri 🏦', shopeepay:'ShopeePay 🛒' };
+
+  if (!amount || !from_wallet || !to_wallet) {
+    addBubble('<div class="ai-badge">✦ AI</div><br>Hmm, transfer-nya kurang lengkap 🤔 Sebutkan nominal, dari mana, dan ke mana.', 'in');
+    return;
+  }
+  if (from_wallet === to_wallet) {
+    addBubble('<div class="ai-badge">✦ AI</div><br>Dompet asal dan tujuan sama 🤔 Pilih dompet yang berbeda ya.', 'in');
+    return;
+  }
+
+  const label = desc || 'Transfer';
+  const preview = `<div class="txn-card transfer">
+    <div class="txn-amount">🔄 ${fmtRp(amount)}</div>
+    <div class="txn-row"><span class="tlbl">Dari</span><span class="tval">${wNames[from_wallet]||from_wallet}</span></div>
+    <div class="txn-row"><span class="tlbl">Ke</span><span class="tval">${wNames[to_wallet]||to_wallet}</span></div>
+    <div class="txn-row"><span class="tlbl">Keterangan</span><span class="tval">${label}</span></div>
+  </div>`;
+
+  addBubble(`<div class="ai-badge">✦ AI</div><br>Konfirmasi transfer ini?${preview}`, 'in');
+  addButtons([
+    { label:'✅ Ya, transfer', action: () => {
+      const now = { date: nowDate(), time: nowTime() };
+      // Deduct from source
+      transactions.push({ type:'transfer_out', wallet: from_wallet, amount, desc: label + ' → ' + (WALLETS[to_wallet]||to_wallet), category:'transfer', ...now });
+      // Add to destination
+      transactions.push({ type:'transfer_in',  wallet: to_wallet,   amount, desc: label + ' ← ' + (WALLETS[from_wallet]||from_wallet), category:'transfer', ...now });
+      saveTxns();
+      updateSummary();
+      addBubble(`<div class="ai-badge">✦ AI</div><br>✅ Transfer berhasil!<div class="txn-card transfer">
+        <div class="txn-amount">🔄 ${fmtRp(amount)}</div>
+        <div class="txn-row"><span class="tlbl">Dari</span><span class="tval">${wNames[from_wallet]} <span style="color:#E24B4A">-${fmtRp(amount)}</span></span></div>
+        <div class="txn-row"><span class="tlbl">Ke</span><span class="tval">${wNames[to_wallet]} <span style="color:#1D9E75">+${fmtRp(amount)}</span></span></div>
+      </div>`, 'in');
+    }},
+    { label:'❌ Batal', action: () => addBubble('Oke, dibatalkan.', 'in') }
+  ]);
 }
 
 function handleAdd(txns) {
@@ -836,13 +891,15 @@ let saldoWallet = localStorage.getItem('dompetku_saldo_wallet') || 'semua';
 function updateSummary() {
   const today = nowDate();
   const td = transactions.filter(t => t.date === today);
-  document.getElementById('sout').textContent = fmtRp(td.filter(t => t.type !== 'income').reduce((s,t) => s+t.amount, 0));
+  document.getElementById('sout').textContent = fmtRp(td.filter(t => t.type === 'expense').reduce((s,t) => s+t.amount, 0));
 
   // Saldo calculation
   const wNet = { cash:0, mandiri:0, shopeepay:0 };
   transactions.forEach(t => {
     const k = ['cash','mandiri','shopeepay'].includes(t.wallet) ? t.wallet : 'cash';
-    wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
+    if (t.type === 'transfer_out') wNet[k] = (wNet[k]||0) - t.amount;
+    else if (t.type === 'transfer_in') wNet[k] = (wNet[k]||0) + t.amount;
+    else wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
   });
   let saldo = 0;
   if (saldoWallet === 'semua') saldo = Object.values(wNet).reduce((a,b) => a+b, 0);
@@ -878,9 +935,12 @@ function renderDash() {
     transactions.forEach(t => {
       if (!t || typeof t.amount !== 'number') return;
       const k = ['cash','mandiri','shopeepay'].includes(t.wallet) ? t.wallet : 'cash';
-      wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
+      if (t.type === 'transfer_out') wNet[k] = (wNet[k]||0) - t.amount;
+      else if (t.type === 'transfer_in') wNet[k] = (wNet[k]||0) + t.amount;
+      else wNet[k] = (wNet[k]||0) + (t.type === 'income' ? 1 : -1) * t.amount;
       const cat = t.category || 'lainnya';
-      if (t.type !== 'income') cTot[cat] = (cTot[cat]||0) + t.amount;
+      // transfer & income don't count as expense in chart
+      if (t.type === 'expense') cTot[cat] = (cTot[cat]||0) + t.amount;
     });
 
     const wCls = { cash:'wc', mandiri:'wm', shopeepay:'ws' };
@@ -903,8 +963,8 @@ function renderDash() {
     const tlistEl = document.getElementById('tlist');
     if (tlistEl) tlistEl.innerHTML = recent.length ? recent.map(t => {
       const m = CAT_META[t.category] || CAT_META.lainnya;
-      const col = t.type === 'income' ? '#1D9E75' : '#E24B4A';
-      const sign = t.type === 'income' ? '+' : '-';
+      const col = t.type === 'income' || t.type === 'transfer_in' ? '#1D9E75' : t.type === 'transfer_out' ? '#1976D2' : '#E24B4A';
+      const sign = t.type === 'income' || t.type === 'transfer_in' ? '+' : t.type === 'transfer_out' ? '↔' : '-';
       const wLabel = WALLETS[t.wallet] || t.wallet || '?';
       const desc = t.desc || '(tanpa nama)';
       return `<div class="tlr"><div class="tll"><div class="tli">${m.icon}</div><div><div class="tld">${desc}</div><div class="tlm">${t.date||''} ${t.time||''} · ${wLabel}</div></div></div><div style="font-size:13px;font-weight:600;color:${col};flex-shrink:0">${sign}${fmtRp(t.amount)}</div></div>`;
@@ -928,7 +988,7 @@ function switchTab(tab) {
   document.getElementById('typing').style.display    = 'none';
   document.getElementById('dash').style.display      = isChat ? 'none' : 'flex';
   document.querySelectorAll('.htab').forEach((b,i) => b.classList.toggle('active', (i===0) === isChat));
-  document.getElementById('hsub').textContent = isChat ? 'catat keuanganmu' : 'ringkasan keuanganmu';
+  document.getElementById('hsub').textContent = isChat ? 'powered by Claude AI' : 'ringkasan keuanganmu';
   if (!isChat) renderDash();
 }
 
@@ -938,7 +998,8 @@ function exportCSV() {
   const hdr = 'Tanggal,Waktu,Deskripsi,Tipe,Kategori,Dompet,Jumlah\n';
   const rows = transactions.map(t => {
     const cat = CAT_META[t.category]?.label || 'Lainnya';
-    return `${t.date},${t.time},"${t.desc}",${t.type==='income'?'Pemasukan':'Pengeluaran'},${cat},${WALLETS[t.wallet]||t.wallet},${t.amount}`;
+    const tipeLabel = t.type === 'income' ? 'Pemasukan' : t.type === 'transfer_out' ? 'Transfer Keluar' : t.type === 'transfer_in' ? 'Transfer Masuk' : 'Pengeluaran';
+    return `${t.date},${t.time},"${t.desc}",${tipeLabel},${cat},${WALLETS[t.wallet]||t.wallet},${t.amount}`;
   }).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\uFEFF'+hdr+rows], {type:'text/csv;charset=utf-8;'}));
