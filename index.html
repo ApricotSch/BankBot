@@ -523,7 +523,7 @@ add:      {"intent":"add","transactions":[{"type":"expense","wallet":"mandiri","
 transfer: {"intent":"transfer","amount":200000,"from_wallet":"mandiri","to_wallet":"cash","desc":"Tarik tunai"}
 edit:     {"intent":"edit","search_desc":"es teh","search_time":null,"changes":{"amount":7000}}
 delete:   {"intent":"delete","search_desc":"es teh","search_time":null}
-ambiguous: {"intent":"ambiguous","message":"Maksudmu kurang jelas, bisa diperjelas?"}\`;
+ambiguous: {"intent":"ambiguous","message":"Maksudmu kurang jelas, bisa diperjelas?"}`;
 
 // ── State ──────────────────────────────────────────────────
 let transactions = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
@@ -1012,7 +1012,7 @@ function switchTab(tab) {
   document.getElementById('typing').style.display    = 'none';
   document.getElementById('dash').style.display      = isChat ? 'none' : 'flex';
   document.querySelectorAll('.htab').forEach((b,i) => b.classList.toggle('active', (i===0) === isChat));
-  document.getElementById('hsub').textContent = isChat ? 'Catat Keuanganmu' : 'ringkasan keuanganmu';
+  document.getElementById('hsub').textContent = isChat ? 'Catat keuanganmu' : 'ringkasan keuanganmu';
   if (!isChat) renderDash();
 }
 
